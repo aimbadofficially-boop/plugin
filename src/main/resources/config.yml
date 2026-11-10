@@ -1,0 +1,28 @@
+# ---- Steal an Egg ----
+
+start-cash: 100
+
+income:
+  # Each different egg type a player has discovered (Egg Index) adds this much to income. 0.05 = +5%
+  index-bonus-per-egg-type: 0.05
+
+conveyor:
+  spawn-interval-ticks: 60        # must be an even number. 20 ticks = 1 second
+  speed-blocks-per-second: 2.0
+
+shop:
+  knock-stick-price: 500
+  snowball-price: 250
+  shield-price: 1000
+  shield-seconds: 30
+
+# Walk speed = 0.2 * (1 + speedPoints * per-point + trailBonus), capped at max-multiplier
+speed:
+  per-point: 0.0005
+  max-multiplier: 3.0
+
+treadmills:
+  names: [Jogger, Runner, Sprinter, Lightning]
+  gain-per-second: [1, 3, 8, 20]        # speed points per second while running on it
+  required-points: [0, 100, 500, 2500]  # speed points needed before a treadmill gives points
+  push: 0.045                           # how hard the belt drags you backwards (raise if players can stand still)
