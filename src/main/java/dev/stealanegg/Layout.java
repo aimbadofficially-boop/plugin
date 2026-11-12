@@ -1,15 +1,115 @@
 package dev.stealanegg;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
 import org.bukkit.generator.ChunkGenerator;
 
 import java.util.Random;
 
-/** Geometry of the T-shaped map. Bar (bases) at z<20, stem (path + biomes) runs toward +z. */
+/**
+ * Geometry for Steal an Egg.
+ *
+ * Section 1 = plaza map (used by Game, Guis, MapBuilder): plaza, shop stalls, conveyor,
+ *             treadmill gym and player bases.
+ * Section 2 = the older T-shaped map helpers, kept so any other file that still uses them compiles.
+ */
 public final class Layout {
+
+    // ====================================================================================
+    // SECTION 1 - plaza map
+    // ====================================================================================
+
     public static final String WORLD = "sae_world";
     public static final int GY = 64;
+    public static final int FLOOR = GY;
+
+    // ---- field (where the bases are, north of the plaza) ----
+    public static final int FIELD_X = 44;
+    public static final int FIELD_Z1 = -105;
+    public static final int FIELD_Z2 = -26;
+
+    // ---- bases: 2 columns x 3 rows ----
+    public static final int BASE_COUNT = 6;
+    public static final int SLOTS = 10;
+
+    public static final String[] BASE_NAMES = {
+            "Red Base", "Blue Base", "Green Base", "Yellow Base", "Purple Base", "Orange Base"
+    };
+    public static final Material[] BASE_COLORS = {
+            Material.RED_CONCRETE, Material.BLUE_CONCRETE, Material.LIME_CONCRETE,
+            Material.YELLOW_CONCRETE, Material.PURPLE_CONCRETE, Material.ORANGE_CONCRETE
+    };
+
+    public static int baseCx(int i) { return (i % 2 == 0) ? -24 : 24; }
+    public static int baseCz(int i) { return -45 - 25 * (i / 2); }
+
+    /** 5 pedestals per row, 2 rows inside each base. */
+    public static int slotX(int cx, int s) { return cx - 6 + (s % 5) * 3; }
+    public static int slotZ(int cz, int s) { return cz - 5 + (s / 5) * 4; }
+
+    // ---- conveyor (in the plaza, west to east) ----
+    public static final int CONV_X1 = -14, CONV_X2 = 14;
+    public static final int CONV_Z1 = 8, CONV_Z2 = 12;
+    public static final double CONV_EGG_Z = 10.5;
+
+    // ---- treadmill gym ----
+    public static final int TM_COUNT = 4;
+    public static final int TM_Z1 = 28, TM_Z2 = 45;
+
+    public static int tmX(int i) { return -18 + 12 * i; }
+
+    /** Which treadmill lane the location is on, or -1. */
+    public static int treadmillAt(Location l) {
+        if (l.getY() > FLOOR + 3) return -1;
+        int x = l.getBlockX(), z = l.getBlockZ();
+        if (z < TM_Z1 || z > TM_Z2) return -1;
+        for (int i = 0; i < TM_COUNT; i++) {
+            if (Math.abs(x - tmX(i)) <= 1) return i;
+        }
+        return -1;
+    }
+
+    /** Plaza + gym is the safe zone (no stealing / knocking). */
+    public static boolean isSafe(Location l) {
+        return l.getZ() > -25 && Math.abs(l.getX()) < 25;
+    }
+
+    // ---- shop stalls ----
+
+    /**
+     * A shop stall. Local coords: lx runs left/right along the counter, lz runs from the
+     * customer side (negative) to the back panel (positive). facing = the way customers face.
+     */
+    public record Stall(String id, int ox, int oz, BlockFace facing) {
+        public int wx(int lx, int lz) {
+            return switch (facing) {
+                case NORTH -> ox + lx;
+                case SOUTH -> ox - lx;
+                case EAST -> ox - lz;
+                default -> ox + lz; // WEST
+            };
+        }
+
+        public int wz(int lx, int lz) {
+            return switch (facing) {
+                case NORTH -> oz + lz;
+                case SOUTH -> oz - lz;
+                case EAST -> oz + lx;
+                default -> oz - lx; // WEST
+            };
+        }
+    }
+
+    public static final Stall PVP = new Stall("pvp", -16, 17, BlockFace.NORTH);
+    public static final Stall TRAIL = new Stall("trail", 0, 17, BlockFace.NORTH);
+    public static final Stall INDEX = new Stall("index", 16, 17, BlockFace.NORTH);
+
+    // ====================================================================================
+    // SECTION 2 - older T-shaped map helpers (kept for compatibility)
+    // ====================================================================================
+
     public static final int[] PX = {-85, -55, -25, 25, 55, 85};
     public static final int R1_DOOR = -31, R2_DOOR = -10;
     public static final int PLOTS = 12;
@@ -23,7 +123,7 @@ public final class Layout {
         public Location getFixedSpawnLocation(World w, Random r) { return spawn(w); }
     }
 
-    public static Location spawn(World w) { return new Location(w, 0.5, GY + 1, -14.5, 0, 0); }
+    public static Location spawn(World w) { return new Location(w, 0.5, GY + 1, 4.5, 0, 0); }
 
     public static int cx(int plot) { return PX[plot % 6]; }
     public static boolean row1(int plot) { return plot < 6; }
@@ -56,8 +156,6 @@ public final class Layout {
 
     public static int uOf(int plot, Location l) { return l.getBlockX() - cx(plot); }
     public static int dOf(int plot, Location l) { return row1(plot) ? R1_DOOR - l.getBlockZ() : l.getBlockZ() - R2_DOOR; }
-
-    public static boolean isSafe(Location l) { return l.getZ() < STEM_START; }
 
     public static int gateZ(int i) { return BIOME_START + i * BIOME_LEN; }
     public static int centerZ(int i) { return gateZ(i) + BIOME_LEN / 2; }
