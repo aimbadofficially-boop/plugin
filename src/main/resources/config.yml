@@ -1,28 +1,55 @@
-# ---- Steal an Egg ----
-
-start-cash: 100
-
-income:
-  # Each different egg type a player has discovered (Egg Index) adds this much to income. 0.05 = +5%
-  index-bonus-per-egg-type: 0.05
-
-conveyor:
-  spawn-interval-ticks: 60        # must be an even number. 20 ticks = 1 second
-  speed-blocks-per-second: 2.0
-
-shop:
-  knock-stick-price: 500
-  snowball-price: 250
-  shield-price: 1000
-  shield-seconds: 30
-
-# Walk speed = 0.2 * (1 + speedPoints * per-point + trailBonus), capped at max-multiplier
-speed:
-  per-point: 0.0005
-  max-multiplier: 3.0
-
-treadmills:
-  names: [Jogger, Runner, Sprinter, Lightning]
-  gain-per-second: [1, 3, 8, 20]        # speed points per second while running on it
-  required-points: [0, 100, 500, 2500]  # speed points needed before a treadmill gives points
-  push: 0.045                           # how hard the belt drags you backwards (raise if players can stand still)
+# Steal An Egg - configuration
+# Cash/Speed/income numbers for eggs, biomes, treadmills and trails can be overridden below.
+settings:
+  income-multiplier: 1.0        # multiplies all pet income
+  growth-multiplier: 1.0        # 0.5 = eggs hatch twice as fast
+  nest-reset-seconds: 300       # the real game resets nests every 5 minutes
+  starting-speed: 10
+  starting-money: 0
+  base-pet-capacity: 6
+  base-incubator-slots: 2       # max 9
+  steal-from-bases: true        # steal growing eggs from other online players' bases
+  steal-from-carriers: true     # steal eggs from players carrying them
+  steal-cooldown-ms: 3000
+  treadmill-blocks-per-step: 1.0
+  walk-speed-cap: 0.8           # Bukkit walk speed cap (0.2 = normal, 1.0 = max)
+  forceload-map: true           # keeps the map chunks loaded so guardians never vanish
+  guardian-aggro-radius: 12
+  guardian-damage-base: 2.0
+  guardian-damage-per-biome: 1.0
+  plot-expire-days: 14          # free a base if its owner has not played for this long
+offline-income:
+  enabled: true
+  max-hours: 24
+  rate: 1.0
+upgrades:
+  pen:                          # real game: pen upgrade 11 = 500T, 12 = 5Qa (x10 each)
+    base-cost: 50000
+    multiplier: 10
+    max-level: 12
+  incubator:
+    base-cost: 25000
+    multiplier: 8
+    max-level: 7
+# Speed required to enter each biome (Forest..Volcano + Cherry Blossom match the wiki,
+# the other values are estimates - change them freely).
+biomes:
+  forest:      {speed: 0}
+  lake:        {speed: 900}
+  desert:      {speed: 10000}
+  jungle:      {speed: 40000}
+  snow:        {speed: 170000}
+  volcano:     {speed: 700000}
+  abyss:       {speed: 5000000}
+  prehistoric: {speed: 50000000}
+  cosmic:      {speed: 500000000}
+  cherry:      {speed: 2500000000}
+  titan:       {speed: 25000000000}
+# Optional per-egg overrides, e.g.
+# eggs:
+#   forest_chicken: {income: 1, grow: 10, speed: 420}
+# Optional treadmill / trail price overrides, e.g.
+# treadmills:
+#   1: {cost: 15000}
+# trails:
+#   grey: {cost: 100}

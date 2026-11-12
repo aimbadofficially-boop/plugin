@@ -2,22 +2,15 @@ name: StealAnEgg
 version: 1.0.0
 main: dev.stealanegg.StealAnEgg
 api-version: '1.21'
-description: Steal an Egg minigame with an auto-generated map, treadmills and Bedrock (Geyser) support.
-softdepend: [Geyser-Spigot, floodgate]
+load: STARTUP
+author: you
+description: Steal An Egg recreated with vanilla Minecraft mobs
 commands:
   sae:
-    description: Steal an Egg admin command
-    usage: /sae <rebuildmap|give|spawn>
-  base:
-    description: Teleport to your base
-    usage: /base
-  spawn:
-    description: Teleport to the plaza
-    usage: /spawn
+    description: Steal An Egg main command
+    aliases: [stealanegg]
+    usage: /sae help
 permissions:
   stealanegg.admin:
-    description: Use /sae admin commands
-    default: op
-  stealanegg.build:
-    description: Build/break blocks and stay in survival/creative in the game world
+    description: Admin commands
     default: op
