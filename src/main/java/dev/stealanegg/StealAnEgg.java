@@ -1,152 +1,110 @@
 package dev.stealanegg;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import org.bukkit.*;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Random;
+import java.io.File;
+import java.util.*;
 
 public final class StealAnEgg extends JavaPlugin {
-    public static final String WORLD_NAME = "steal_an_egg";
-
+    public Db db;
     public World world;
-    public DataStore data;
-    public Game game;
-    public Guis guis;
-    private BeltAnimator belts;
-
-    /** Completely empty world; MapBuilder fills it in. */
-    private static final class VoidGenerator extends ChunkGenerator {
-        @Override
-        public Location getFixedSpawnLocation(@NotNull World world, @NotNull Random random) {
-            return new Location(world, 0.5, Layout.FLOOR + 1, 4.5);
-        }
-    }
+    public final Map<UUID, PlayerData> players = new HashMap<>();
+    public final Set<UUID> bypass = new HashSet<>();
+    public WorldBuilder builder;
+    public BaseManager bases;
+    public NestManager nests;
+    public Training training;
+    public boolean ready;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        data = new DataStore(this);
-        data.load();
-
-        WorldCreator wc = new WorldCreator(WORLD_NAME);
-        wc.generator(new VoidGenerator());
-        wc.generateStructures(false);
-        world = wc.createWorld();
-        if (world == null) {
-            getLogger().severe("Could not create the game world - disabling.");
+        Util.init(this);
+        GameData.load(getConfig());
+        getDataFolder().mkdirs();
+        try {
+            db = new Db(new File(getDataFolder(), "data.db"), getLogger());
+        } catch (Exception ex) {
+            getLogger().severe("SQLite failed: " + ex);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        world.getWorldBorder().setCenter(0, -30);
-        world.getWorldBorder().setSize(400);
-
-        if (world.getBlockAt(0, Layout.FLOOR, 0).getType() == Material.AIR) {
-            getLogger().info("Generating the Steal an Egg map...");
-            new MapBuilder(this, world).build();
-            getLogger().info("Map done.");
+        db.resetHatching();
+        world = Bukkit.getWorld(Layout.WORLD);
+        if (world == null) world = new WorldCreator(Layout.WORLD).generator(new Layout.VoidGen()).createWorld();
+        if (world == null) {
+            getLogger().severe("Could not create world " + Layout.WORLD);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
-
-        game = new Game(this);
-        guis = new Guis(this);
-        game.start();
-        belts = new BeltAnimator(this);
-        belts.start();
+        Commands cmd = new Commands(this);
+        getCommand("sae").setExecutor(cmd);
+        getCommand("sae").setTabCompleter(cmd);
         getServer().getPluginManager().registerEvents(new GameListener(this), this);
+        Bukkit.getScheduler().runTask(this, this::startup);
+    }
 
-        Bukkit.getScheduler().runTaskTimer(this, () -> data.save(), 20L * 300, 20L * 300);
+    private void startup() {
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+        world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+        world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
+        world.setGameRule(GameRule.KEEP_INVENTORY, true);
+        world.setGameRule(GameRule.MOB_GRIEFING, false);
+        world.setGameRule(GameRule.DO_FIRE_TICK, false);
+        world.setGameRule(GameRule.DO_IMMEDIATE_RESPAWN, true);
+        world.setGameRule(GameRule.RANDOM_TICK_SPEED, 0);
+        world.setTime(6000);
+        world.setSpawnLocation(Layout.spawn(world));
 
-        for (Player p : Bukkit.getOnlinePlayers()) game.join(p);
-
-        if (Bukkit.getPluginManager().isPluginEnabled("Geyser-Spigot")
-                || Bukkit.getPluginManager().isPluginEnabled("floodgate")) {
-            getLogger().info("Geyser/Floodgate detected - Bedrock players are supported.");
+        if (getConfig().getBoolean("settings.forceload-map", true)) {
+            int last = (Layout.BIOME_START + Layout.BIOMES * Layout.BIOME_LEN) / 16 + 2;
+            for (int cz = -4; cz <= last; cz++) {
+                int from = cz <= 1 ? -7 : -3, to = cz <= 1 ? 6 : 2;
+                for (int cx = from; cx <= to; cx++) world.setChunkForceLoaded(cx, cz, true);
+            }
         }
+        builder = new WorldBuilder(world);
+        if (!"1".equals(db.meta("map_v"))) {
+            getLogger().info("Building the T-shaped map for the first time (this takes a few seconds)...");
+            builder.buildAll();
+            db.setMeta("map_v", "1");
+            getLogger().info("Map built.");
+        }
+        for (Entity e : world.getEntities()) if (Util.type(e) != null) e.remove();
+        bases = new BaseManager(this);
+        nests = new NestManager(this);
+        training = new Training(this);
+        bases.spawnPlotEntities();
+        nests.spawnAll();
+
+        new BukkitRunnable() {
+            @Override public void run() { bases.tickSecond(); nests.tickSecond(); }
+        }.runTaskTimer(this, 20, 20);
+        new BukkitRunnable() {
+            @Override public void run() { nests.guardianAI(); }
+        }.runTaskTimer(this, 10, 10);
+        new BukkitRunnable() {
+            @Override public void run() { training.tick(); bases.followCarry(); }
+        }.runTaskTimer(this, 2, 2);
+        new BukkitRunnable() {
+            @Override public void run() { bases.autosave(); }
+        }.runTaskTimer(this, 600, 600);
+
+        ready = true;
+        for (Player p : Bukkit.getOnlinePlayers()) bases.join(p);
+        getLogger().info("Steal An Egg is ready.");
     }
 
     @Override
     public void onDisable() {
-        if (game != null) game.shutdown();
-        if (data != null) data.save();
-    }
-
-    @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, @NotNull String[] args) {
-        switch (cmd.getName().toLowerCase()) {
-            case "base" -> {
-                if (sender instanceof Player p) {
-                    p.teleport(game.baseSpawn(p) != null ? game.baseSpawn(p) : game.spawn());
-                }
-                return true;
-            }
-            case "spawn" -> {
-                if (sender instanceof Player p) p.teleport(game.spawn());
-                return true;
-            }
-            case "sae" -> {
-                if (!sender.hasPermission("stealanegg.admin")) {
-                    Msg.send(sender, "&cNo permission.");
-                    return true;
-                }
-                if (args.length == 0) {
-                    Msg.send(sender, "&e/sae rebuildmap &7| &e/sae give <player> <cash> &7| &e/sae speed <player> <points>");
-                    return true;
-                }
-                switch (args[0].toLowerCase()) {
-                    case "rebuildmap" -> {
-                        Msg.send(sender, "&eRebuilding map (players keep their eggs, visuals are redrawn on rejoin)...");
-                        new MapBuilder(this, world).build();
-                        Msg.send(sender, "&aDone.");
-                    }
-                    case "give" -> {
-                        Player t = args.length > 2 ? Bukkit.getPlayerExact(args[1]) : null;
-                        if (t == null) {
-                            Msg.send(sender, "&cUsage: /sae give <player> <cash>");
-                            return true;
-                        }
-                        try {
-                            data.getOrCreate(t).cash += Double.parseDouble(args[2]);
-                            Msg.send(sender, "&aGave cash to " + t.getName());
-                        } catch (NumberFormatException ex) {
-                            Msg.send(sender, "&cNot a number.");
-                        }
-                    }
-                    case "speed" -> {
-                        Player t = args.length > 2 ? Bukkit.getPlayerExact(args[1]) : null;
-                        if (t == null) {
-                            Msg.send(sender, "&cUsage: /sae speed <player> <points>");
-                            return true;
-                        }
-                        try {
-                            PlayerData d = data.getOrCreate(t);
-                            d.speedPoints += Double.parseDouble(args[2]);
-                            game.applySpeed(t, d);
-                            Msg.send(sender, "&aGave speed points to " + t.getName());
-                        } catch (NumberFormatException ex) {
-                            Msg.send(sender, "&cNot a number.");
-                        }
-                    }
-                    default -> Msg.send(sender, "&cUnknown subcommand.");
-                }
-                return true;
-            }
-            default -> {
-                return false;
-            }
-        }
-    }
-
-    @Nullable
-    public PlayerData dataOf(Player p) {
-        return data.get(p.getUniqueId());
+        ready = false;
+        if (bases != null) for (Player p : new ArrayList<>(Bukkit.getOnlinePlayers())) bases.quit(p);
+        if (world != null) for (Entity e : world.getEntities()) if (Util.type(e) != null) e.remove();
+        if (db != null) db.close();
     }
 }
