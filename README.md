@@ -1,43 +1,22 @@
-# Steal an Egg (Paper + Geyser/Floodgate)
+# Steal An Egg (Paper plugin)
 
-A Minecraft minigame plugin inspired by the Bionic "Minecraft STEAL AN EGG" video.
-The plugin builds its own map in a void world called `steal_an_egg` the first time it starts.
+A recreation of the Roblox game *Steal An Egg* using only vanilla Minecraft mobs.
+Requires **Paper 1.21.4+** and **Java 21**.
 
-## Build
-Needs JDK 21 and Maven:
+## Build with GitHub Actions
+1. Create a repo and upload everything in this folder (keep the `.github` folder).
+2. Open the **Actions** tab -> **Build plugin** -> run it (it also runs on every push).
+3. Download `StealAnEgg-jar` from the run, unzip, drop `StealAnEgg.jar` into `plugins/`.
 
-    mvn package
+## First start
+The plugin creates a void world `sae_world`, builds the T-shaped map and teleports players to their base.
+Config: `plugins/StealAnEgg/config.yml`. Data: `plugins/StealAnEgg/data.db` (SQLite).
 
-The jar ends up in `target/StealAnEgg.jar`. Drop it in `plugins/`.
-
-## Server requirements
-- Paper (or a fork) 1.21.x, Java 21
-- For Bedrock players: Geyser-Spigot + Floodgate (optional, nothing else to configure)
-
-## How it plays
-- Players are teleported into the world on join and get a base (12 bases, coloured).
-- **Egg conveyor** in the plaza: tap/right-click an egg to buy it. Cost depends on rarity.
-- Eggs sit on pedestals in your base and pay income per second. Each new egg type you
-  discover (Egg Index) adds +5% income.
-- **Steal**: tap an egg in someone else's base to grab it, then run it back to your own base.
-  The carrier glows. A **Knock Stick** (PVP shop) hit knocks the egg loose and returns it to its owner.
-- Plaza is a safe zone (no knocking/freezing).
-- **PVP shop**: Knock Stick, Freeze Snowballs, Egg Shield.
-- **Trail shop**: particle trails that also give a permanent speed bonus.
-- **Egg Index**: shows the eggs you have discovered.
-- **Speed Gym**: 4 treadmills (Jogger, Runner, Sprinter, Lightning). Run forward on the belt to
-  earn speed points; more points = higher walk speed. Faster treadmills need more points first.
+## Gameplay
+Go down the long path, right-click a guarded egg to steal it, outrun the guardian mobs, walk into your base to
+incubate it, collect pet income at the gold block, train on the treadmill, buy trails, upgrade your base.
+Right-click a player carrying an egg (outside the safe zone) or a growing egg in another base to steal it.
 
 ## Commands
-- `/base`, `/spawn`
-- `/sae rebuildmap`, `/sae give <player> <cash>`, `/sae speed <player> <points>` (permission `stealanegg.admin`)
-
-## Config
-`plugins/StealAnEgg/config.yml`: start cash, shop prices, conveyor speed, treadmill gains /
-requirements / belt push strength, speed per point, max speed multiplier.
-
-## Notes
-- Chest GUIs, signs, action bars and the sidebar all work through Geyser.
-- Nothing here was tested on a live server yet - see the tuning tips below.
-- Tuning: if players can stand still on a treadmill raise `treadmills.push`; if egg
-  armor stands look too high/low change the `F + 1.2` / `F + 0.75` offsets in `Game.java`.
+Players: `/sae home|spawn|stats|collect|help`
+Admins (OP / `stealanegg.admin`): `/sae give|set|trail|reset|info|plot|tp|bypass|resetnests|eggs|rebuild|reload`
